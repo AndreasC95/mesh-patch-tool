@@ -5,9 +5,6 @@ Hover an edge to highlight it, click connected edges to build a closed loop,
 and the enclosed face is triangulated and committed automatically. Press 't'
 to write the result to the output OBJ.
 """
-# 2 bugs to fix:
-# - When clicking edges to form a loop, sometimes edges are not accepted even though they should
-# - Concave faces are not correctly formed and violate the wireframe geometry
 import argparse
 import os
 import sys
@@ -87,8 +84,8 @@ class MeshVisualizer:
     def __init__(self, renderer):
         self.ren = renderer
         self.actor = vtk.vtkActor()
-        self.actor.GetProperty().SetColor(0.2, 0.2, 1.0)  # blue-ish so it differs
-        self.actor.GetProperty().SetOpacity(0.25)         # optional, helps see wireframe
+        self.actor.GetProperty().SetColor(0.2, 0.2, 1.0)  
+        self.actor.GetProperty().SetOpacity(0.25)         
         self.ren.AddActor(self.actor)
 
     def set_mesh(self, vertices, faces):
@@ -381,12 +378,6 @@ class EdgeSelectionManager:
             return
 
         a, b = he
-        p0 = self.poly.GetPoints().GetPoint(a)  # 4 debug
-        p1 = self.poly.GetPoints().GetPoint(b)  # 4 debug
-        #print(f"CLICK hovered edge vids=({a},{b}) coords={p0} -> {p1}") # 4 debug
-        print("CLICKED EDGE:")
-        print(f"  v0 = ({p0[0]:.9f}, {p0[1]:.9f}, {p0[2]:.9f})")
-        print(f"  v1 = ({p1[0]:.9f}, {p1[1]:.9f}, {p1[2]:.9f})")
 
         u = (a, b) if a < b else (b, a)
 
@@ -401,10 +392,6 @@ class EdgeSelectionManager:
             self.tail_id = b
             self.edge_set.add(u)
             self._update_red_edges()
-            print("FIRST EDGE ACCEPTED:")
-            print(f"  v0 = ({p0[0]:.9f}, {p0[1]:.9f}, {p0[2]:.9f})")
-            print(f"  v1 = ({p1[0]:.9f}, {p1[1]:.9f}, {p1[2]:.9f})")
-
             self.iren.GetRenderWindow().Render()
             return
 
@@ -426,14 +413,12 @@ class EdgeSelectionManager:
             print("REJECT: edge does not connect to head or tail")
             return
 
-        #self.edges.append(new)
-        #self.edge_set.add((min(new), max(new)))
         self._update_red_edges()
 
         loop = self._try_build_loop_vertices()
         if loop:
-            self.faces.add_face(loop)   # AUTO-COMMIT (persistent)
-            self.clear_selection()      # allows next face immediately
+            self.faces.add_face(loop)   
+            self.clear_selection()     
 
         self.iren.GetRenderWindow().Render()
 
@@ -665,7 +650,7 @@ class FaceManager:
         self.actor.SetMapper(mapper)
         self.actor.GetProperty().SetColor(1, 1, 0)
         self.actor.GetProperty().SetOpacity(1)
-        self.actor.GetProperty().EdgeVisibilityOn()  # helps visibility
+        self.actor.GetProperty().EdgeVisibilityOn() 
         self.ren.AddActor(self.actor)
 
         self.faces = []  # store loops for export later
@@ -719,21 +704,18 @@ class ObjFaceSaver:
 
         # Write output
         with open(self.output_path, "w", encoding="utf-8") as f:
-            # Write vertices
+
             for x, y, z in vertices:
                 f.write(f"v {x} {y} {z}\n")
 
-            # Write lines
             for line in lines:
                 idx = " ".join(str(i + 1) for i in line)
                 f.write(f"l {idx}\n")
 
-            # Write existing mesh faces
             for face in existing_faces:
                 idx = " ".join(str(i + 1) for i in face)
                 f.write(f"f {idx}\n")
 
-            # Write new extracted faces
             for face in new_faces:
                 idx = " ".join(str(i + 1) for i in face)
                 f.write(f"f {idx}\n")
@@ -772,7 +754,6 @@ class Main:
             self.mesh_vis = MeshVisualizer(self.viewer.renderer)
             self.mesh_vis.set_mesh(self.mesh_loader.vertices, self.mesh_loader.faces)
 
-        # rest of your pipeline
         self.hover = EdgeHoverHighlighter(self.viewer.interactor, self.viewer.renderer, self.viewer.polydata, pixel_tol=8)
         self.faces = FaceManager(self.viewer.renderer, self.viewer.polydata.GetPoints())
         self.select = EdgeSelectionManager(self.viewer.interactor, self.viewer.renderer, self.viewer.polydata, self.hover, self.faces)
@@ -793,7 +774,7 @@ def default_output_path(wire_path: str) -> str:
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        prog="geomerry_patching",
+        prog="geometry_patching",
         description="Interactively extract faces from a wireframe OBJ by clicking edge loops.",
         epilog=(
             "Controls: right-drag rotates, middle-drag pans, left-click selects the "
