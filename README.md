@@ -1,6 +1,7 @@
 # Wireframe Face Patching
 
 Interactive tool for closing faces on 3D building wireframes. Hover an edge, click a sequence of connected edges to form a closed loop, and the enclosed face is triangulated and committed automatically.
+![demo](demo.gif)
 
 ## Why
 Automated mesh generation from wireframes leaves holes wherever the topology is degenerate, ambiguous, or simply when the optimiser can't go deep enough. Rewriting the generator to handle every case is not always worth it when the failures are a small fraction of a large batch. This tool covers the remainder. I.e., it lets you close the missing faces by hand, quickly, with the wireframe as the constraint so the patched geometry remains consistent with the source.
