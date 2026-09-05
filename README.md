@@ -46,6 +46,9 @@ The tool opens a VTK window, so the container needs access to the host display. 
 ```bash
 xhost +local:docker
 
+git clone https://github.com/AndreasC95/mesh-patch-tool
+cd mesh-patch-tool
+
 docker run --rm -it \
   -e DISPLAY=$DISPLAY \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
