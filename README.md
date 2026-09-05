@@ -32,13 +32,39 @@ Each face contributes an edge between consecutive vertices, closing back to the 
 Deduplicate edges shared between adjacent faces.
 
 ## Installation
-
+### Locally:
 ```
 git clone https://github.com/AndreasC95/mesh-patch-tool
 cd mesh-patch-tool
 pip install vtk==9.4.2
 ```
+### Running in Docker
 
+
+The tool opens a VTK window, so the container needs access to the host display. Tested on Linux/X11.
+
+```bash
+xhost +local:docker
+
+docker run --rm -it \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v "$PWD":/app \
+  -w /app \
+  ubuntu:24.04 bash
+```
+
+Inside the container:
+
+```bash
+apt update
+apt install -y python3 python3-pip libgl1 libglx-mesa0 libxrender1 libxext6 libsm6 libx11-6 libxt6
+pip3 install --break-system-packages vtk==9.4.2
+
+python3 geometry_patching.py examples/gambrel_missing_sides.obj
+```
+
+Run `xhost -local:docker` afterwards to revoke display access.
 ## Usage
 ```
 python3 geometry_patching.py examples/gambrel_missing_sides.obj
