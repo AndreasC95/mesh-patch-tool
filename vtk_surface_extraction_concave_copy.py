@@ -1,9 +1,18 @@
+"""
+Interactive face extraction from a wireframe OBJ.
+
+Hover an edge to highlight it, click connected edges to build a closed loop,
+and the enclosed face is triangulated and committed automatically. Press 't'
+to write the result to the output OBJ.
+"""
 # 2 bugs to fix:
 # - When clicking edges to form a loop, sometimes edges are not accepted even though they should
 # - Concave faces are not correctly formed and violate the wireframe geometry
+import argparse
+import os
+import sys
 import vtk
 import math
-import os
 
 
 class WireframeObjLoader:
@@ -71,6 +80,7 @@ class MeshObjLoader:
             raise ValueError("Mesh OBJ must contain at least one 'v' and one 'f'.")
         return self
 
+
 class MeshVisualizer:
     """VTK rendering for a mesh (vertices + faces)."""
 
@@ -108,6 +118,7 @@ class WireframeVisualizer:
         self.renderer = vtk.vtkRenderer()
         self.renderer.SetBackground(1.0, 1.0, 1.0)
         self.window = vtk.vtkRenderWindow()
+        self.window.SetWindowName("Geometry Patching")
         self.window.AddRenderer(self.renderer)
         self.interactor = vtk.vtkRenderWindowInteractor()
         self.interactor.SetRenderWindow(self.window)
@@ -146,15 +157,13 @@ class WireframeVisualizer:
         self.window.SetFullScreen(False)
 
         screen_w, screen_h = self.window.GetScreenSize()
-        self.window.SetSize(screen_w, screen_h) 
+        self.window.SetSize(screen_w, screen_h)
         self.window.SetPosition(0, 0)
 
     def show(self):
         self.window.Render()
         self.interactor.Initialize()
         self.interactor.Start()
-
-import vtk
 
 
 class WireframeInteractivityStyle(vtk.vtkInteractorStyleTrackballCamera):
@@ -234,9 +243,9 @@ class WireframeInteractivityStyle(vtk.vtkInteractorStyleTrackballCamera):
             print(f"Saved extracted faces -> {self.saver.output_path}")
 
 
-
 class WireframeInteractivity:
     """Installs style and injects dependencies."""
+
     def __init__(self, interactor, renderer, selection_mgr, loader, face_manager, saver):
         style = WireframeInteractivityStyle(renderer)
         style.sel = selection_mgr
@@ -244,8 +253,6 @@ class WireframeInteractivity:
         style.faces = face_manager
         style.saver = saver
         interactor.SetInteractorStyle(style)
-
-
 
 
 class EdgeHoverHighlighter:
@@ -349,7 +356,6 @@ class EdgeSelectionManager:
         self.head_id = None
         self.tail_id = None
 
-
         self.edges = []        # directed chain [(a,b), ...]
         self.edge_set = set()  # undirected edges in current selection
 
@@ -375,8 +381,8 @@ class EdgeSelectionManager:
             return
 
         a, b = he
-        p0 = self.poly.GetPoints().GetPoint(a) # 4 debug
-        p1 = self.poly.GetPoints().GetPoint(b) # 4 debug
+        p0 = self.poly.GetPoints().GetPoint(a)  # 4 debug
+        p1 = self.poly.GetPoints().GetPoint(b)  # 4 debug
         #print(f"CLICK hovered edge vids=({a},{b}) coords={p0} -> {p1}") # 4 debug
         print("CLICKED EDGE:")
         print(f"  v0 = ({p0[0]:.9f}, {p0[1]:.9f}, {p0[2]:.9f})")
@@ -419,7 +425,6 @@ class EdgeSelectionManager:
         else:
             print("REJECT: edge does not connect to head or tail")
             return
-
 
         #self.edges.append(new)
         #self.edge_set.add((min(new), max(new)))
@@ -477,7 +482,6 @@ class EdgeSelectionManager:
 
         return verts[:-1]
 
-import math
 
 def _vsub(a, b): return (a[0]-b[0], a[1]-b[1], a[2]-b[2])
 def _vdot(a, b): return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
@@ -486,6 +490,7 @@ def _vcross(a, b):
             a[2]*b[0]-a[0]*b[2],
             a[0]*b[1]-a[1]*b[0])
 def _vlen(a): return math.sqrt(_vdot(a, a))
+
 
 def _newell_normal(points3):
     # stable polygon normal for (nearly) planar loops
@@ -498,6 +503,7 @@ def _newell_normal(points3):
         ny += (z0 - z1) * (x0 + x1)
         nz += (x0 - x1) * (y0 + y1)
     return (nx, ny, nz)
+
 
 def _make_basis_from_normal(n):
     # returns orthonormal (u,v) spanning plane with normal n
@@ -519,12 +525,14 @@ def _make_basis_from_normal(n):
     v = _vcross(n, u)
     return u, v, n
 
+
 def _project_2d(points3, origin3, u, v):
     pts2 = []
     for p in points3:
         d = _vsub(p, origin3)
         pts2.append((_vdot(d, u), _vdot(d, v)))
     return pts2
+
 
 def _area2(poly2):
     a = 0.0
@@ -535,12 +543,15 @@ def _area2(poly2):
         a += x0*y1 - x1*y0
     return a
 
+
 def _is_ccw(poly2):
     return _area2(poly2) > 0
+
 
 def _cross2(a, b, c):
     # z-component of cross((b-a),(c-a)) in 2D
     return (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0])
+
 
 def _pt_in_tri(p, a, b, c, eps=1e-12):
     # barycentric sign test (inclusive)
@@ -551,16 +562,18 @@ def _pt_in_tri(p, a, b, c, eps=1e-12):
     has_pos = (c1 > eps) or (c2 > eps) or (c3 > eps)
     return not (has_neg and has_pos)
 
-def triangulate_concave_loop(loop_vids, src_pts, planarity_eps=1e-4):
+
+def triangulate_concave_loop(loop_vids, points3, planarity_eps=1e-4):
     """
-    loop_vids: [v0, v1, ...] indices into src_pts (vtkPoints)
+    loop_vids: [v0, v1, ...] original vertex ids, in loop order
+    points3:   [(x,y,z), ...] coordinates, parallel to loop_vids
     returns: list of triangles as [(a,b,c), ...] using ORIGINAL vertex ids (not offset)
     """
     n = len(loop_vids)
-    if n < 3:
+    if n < 3 or len(points3) != n:
         return []
 
-    pts3 = [src_pts.GetPoint(vid) for vid in loop_vids]
+    pts3 = list(points3)
     normal = _newell_normal(pts3)
     basis = _make_basis_from_normal(normal)
     if basis is None:
@@ -659,7 +672,8 @@ class FaceManager:
 
     def add_face(self, loop_vids):
         # triangulate loop -> triangles in ORIGINAL vertex ids
-        tris = triangulate_concave_loop(loop_vids, self.src_pts, planarity_eps=1e-4)
+        pts3 = [self.src_pts.GetPoint(vid) for vid in loop_vids]
+        tris = triangulate_concave_loop(loop_vids, pts3, planarity_eps=1e-4)
         if not tris:
             print("Triangulation failed (non-planar / self-intersecting / degenerate). Face skipped.")
             return
@@ -685,7 +699,6 @@ class FaceManager:
         self.poly.Modified()
 
 
-
 class ObjFaceSaver:
     """Writes vertices + lines from wireframe + faces from mesh + new extracted faces to output OBJ."""
 
@@ -703,32 +716,31 @@ class ObjFaceSaver:
                         parts = line.strip().split()[1:]
                         face_indices = [int(p.split('/')[0]) - 1 for p in parts]
                         existing_faces.append(face_indices)
-        
+
         # Write output
         with open(self.output_path, "w", encoding="utf-8") as f:
             # Write vertices
             for x, y, z in vertices:
                 f.write(f"v {x} {y} {z}\n")
-            
+
             # Write lines
             for line in lines:
                 idx = " ".join(str(i + 1) for i in line)
                 f.write(f"l {idx}\n")
-            
+
             # Write existing mesh faces
             for face in existing_faces:
                 idx = " ".join(str(i + 1) for i in face)
                 f.write(f"f {idx}\n")
-            
+
             # Write new extracted faces
             for face in new_faces:
                 idx = " ".join(str(i + 1) for i in face)
                 f.write(f"f {idx}\n")
 
 
-
 class Main:
-    def __init__(self, wire_path: str, mesh_path: str = ""):
+    def __init__(self, wire_path: str, mesh_path: str = "", output_path: str = ""):
         self.wire_path = wire_path
         self.mesh_path = mesh_path
 
@@ -745,7 +757,7 @@ class Main:
 
         # Pass mesh path to saver so it can read existing faces
         self.saver = ObjFaceSaver(
-            "/media/andreas/82A68C25A68C1BB3/Point2RoofData/4999-5999_fix/5130_fix.obj",
+            output_path or default_output_path(wire_path),
             mesh_path=mesh_path
         )
 
@@ -766,20 +778,65 @@ class Main:
         self.select = EdgeSelectionManager(self.viewer.interactor, self.viewer.renderer, self.viewer.polydata, self.hover, self.faces)
         self.interactivity = WireframeInteractivity(self.viewer.interactor, self.viewer.renderer, self.select, self.loader, self.faces, self.saver)
 
+        print(f"Output will be written to: {self.saver.output_path}")
+        print("Controls: hover an edge, left-click to select, 't' to save.")
+
         self.viewer.maximise()
         self.viewer.show()
 
 
+def default_output_path(wire_path: str) -> str:
+    """Derive '<name>_faces.obj' in the current directory from the wireframe path."""
+    stem = os.path.splitext(os.path.basename(wire_path))[0]
+    return os.path.join(os.getcwd(), f"{stem}_faces.obj")
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="geomerry_patching",
+        description="Interactively extract faces from a wireframe OBJ by clicking edge loops.",
+        epilog=(
+            "Controls: right-drag rotates, middle-drag pans, left-click selects the "
+            "highlighted edge, 't' saves the output OBJ."
+        ),
+    )
+    parser.add_argument(
+        "wireframe",
+        help="Path to the wireframe OBJ (contains 'v' and 'l' entries).",
+    )
+    parser.add_argument(
+        "-m", "--mesh",
+        default="",
+        help=(
+            "Optional mesh OBJ (contains 'v' and 'f' entries) drawn as a translucent "
+            "backdrop. Its existing faces are carried into the output. Must share "
+            "vertex ordering with the wireframe."
+        ),
+    )
+    parser.add_argument(
+        "-o", "--output",
+        default="",
+        help=(
+            "Output OBJ path. Defaults to '<wireframe-name>_faces.obj' in the "
+            "current directory."
+        ),
+    )
+
+    args = parser.parse_args(argv)
+
+    if not os.path.isfile(args.wireframe):
+        parser.error(f"wireframe file not found: {args.wireframe}")
+    if args.mesh and not os.path.isfile(args.mesh):
+        parser.error(f"mesh file not found: {args.mesh}")
+
+    return args
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    Main(args.wireframe, args.mesh, args.output).run()
+    return 0
 
 
 if __name__ == "__main__":
-    #app = Main("/home/andreas/3D_REC_MAIN/b3d_tokyo_editedsamples/tokyo_99_edited.obj")
-    #wire = "/media/andreas/82A68C25A68C1BB3/Point2RoofData/manifold_watertight_tests/015048_wireframe.obj" # original slot
-    #wire = "/home/andreas/3D_REC_MAIN/b3d_tokyo_editedsamples/tokyo_56_edited.obj"
-    wire = "/media/andreas/82A68C25A68C1BB3/Point2RoofData/watertight_almostmanifold/005130_wireframe.obj"
-    mesh = "/media/andreas/82A68C25A68C1BB3/Point2RoofData/watertight_almostmanifold/005130_mesh.obj"#"/media/andreas/82A68C25A68C1BB3/Point2RoofData/manifold_watertight_tests/015048_mesh.obj"
-    Main(wire, mesh).run()
-    #app = Main("/media/andreas/82A68C25A68C1BB3/Point2RoofData/manifold_watertight_tests/015672_wireframe.obj")
-    #app.loader.load()
-    #print(f"Loaded {len(app.loader.vertices)} vertices, {len(app.loader.lines)} lines")
-    #app.run()
+    sys.exit(main())
