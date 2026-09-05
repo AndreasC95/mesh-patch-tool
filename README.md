@@ -100,7 +100,7 @@ Once a loop closes, the face is triangulated by ear clipping in the loop's own p
 1. The polygon normal is computed with Newell's method rather than a cross product over two edges. Newell's is stable for near-planar loops and does not depend on which pair of edges happens to be chosen, which matters because building wireframes are rarely perfectly planar.
 2. An orthonormal basis is constructed from the normal, with a fallback when the seed vector is near-parallel, and the loop is projected to 2D.
 3. Winding is normalised to counter-clockwise so the ear clipping test is well defined.
-4. Ears are clipped with a containment test against all remaining vertices, so reflex corners on concave faces are handled correctly.
+4. Ears are clipped with a containment test against all remaining vertices, which is what allows reflex corners on concave faces to be handled.
 5. Triangles are emitted using original vertex ids, so the output indexes into the source wireframe and no new vertices are introduced.
 
 Degenerate input is refused rather than patched over. The triangulator returns nothing when the loop is non-planar beyond tolerance, self-intersecting, collinear, or contains coincident vertices.
@@ -115,4 +115,8 @@ Both are derived from the Point2Roof benchmark (Li et al. 2022).
 - The planarity tolerance is absolute, it needs to be changed based on the user's scale.
 - Some edges are occasionally rejected during loop construction when they should be accepted.
 - Concave faces can be formed in a way that violates the wireframe geometry under specific conditions.
+
+## License
+
+MIT. See `LICENSE`.
 
