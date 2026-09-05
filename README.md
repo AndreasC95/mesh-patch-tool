@@ -44,10 +44,11 @@ pip install vtk==9.4.2
 The tool opens a VTK window, so the container needs access to the host display. Tested on Linux/X11.
 
 ```bash
-xhost +local:docker
 
 git clone https://github.com/AndreasC95/mesh-patch-tool
 cd mesh-patch-tool
+
+xhost +local:docker
 
 docker run --rm -it \
   -e DISPLAY=$DISPLAY \
