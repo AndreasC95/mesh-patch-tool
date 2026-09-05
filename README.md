@@ -12,26 +12,19 @@ If you have a mesh you want to repair but no wireframe it is simple to convert a
 For example consider the following .obj structure (indices are implicit in a real .obj file, here are shown for clarity).
 ```
 1 v x y z
-
 2 v x y z
-
 3 v x y z
-
 4 v x y z
 ```
 With a face mesh element
 ```
-
 f 1 2 3 4
 ```
 The face becomes the edges around its boundary:
 ```
 l 1 2
-
 l 2 3
-
 l 3 4
-
 l 4 1
 ```
 
