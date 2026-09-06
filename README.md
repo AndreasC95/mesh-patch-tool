@@ -93,7 +93,7 @@ python3 geometry_patching.py examples/gambrel_missing_sides.obj -m examples/gamb
 | Middle drag | Pan |
 | `t` | Write the output OBJ |
 
-A loop commits automatically once it closes. Edges must be clicked in sequence: each new edge has to connect to the head or tail of the chain built so far, and every vertex in the finished loop must have degree two. Edges that break either rule are rejected rather than silently accepted, which prevents self-touching loops. Loops can deviate from the face plane if a connected edge that belongs to a different face is selected.
+A loop commits automatically once it closes. Edges must be clicked in sequence: each new edge has to connect to the head or tail of the chain built so far, and every vertex in the finished loop must have degree two. Non-connecting edges are rejected outright, but degree two is only checked once the chain closes, so a loop that closes through a repeated vertex won't commit and the selection gets stuck. Restart the tool if that happens.
 
 ## How it works
 Once a loop closes, the face is triangulated by ear clipping in the loop's own plane:
@@ -103,7 +103,7 @@ Once a loop closes, the face is triangulated by ear clipping in the loop's own p
 4. Ears are clipped with a containment test against all remaining vertices, which is what allows reflex corners on concave faces to be handled.
 5. Triangles are emitted using original vertex ids, so the output indexes into the source wireframe and no new vertices are introduced.
 
-Degenerate input is refused rather than patched over. The triangulator returns nothing when the loop is non-planar beyond tolerance, self-intersecting, collinear, or contains coincident vertices.
+Degenerate input is refused rather than patched over. Loops that are non-planar beyond tolerance or fully collinear are rejected. Self-intersecting and coincident-vertex loops usually fail too, since ear clipping runs out of ears, but neither is tested for directly.
 ## Examples
 examples/ contains wireframe and mesh pairs of two buildings:
 - gambrel_missing_sides.obj is a building with the sides of the gambrel roof missing, a common repair case
